@@ -1,4 +1,4 @@
-var hash = require('./murmerhash');
+var hash = require('./siphash-double.min');
 var Promise = null;
 
 /* Cordova File Cache x */
