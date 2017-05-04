@@ -39,8 +39,16 @@ function FileCache(options){
 FileCache.hash = hash;
 
 /**
- * Helper to cache all 'internalURL' and 'URL' for quick synchronous access
+ * returns the currently cached list for quick synchronous access
  * to the cached files.
+ */
+FileCache.prototype.getCached = function getCached(){
+  return this._cached;
+};
+
+/**
+ * Helper to cache all 'internalURL' and 'URL' for quick synchronous access
+ * to the cached files. Rechecks the file system every time it is run
  */
 FileCache.prototype.list = function list(){
   var self = this;
@@ -75,6 +83,11 @@ FileCache.prototype.add = function add(urls){
   return self.isDirty();
 };
 
+/**
+ * remove files from the cache, by their remote URL.
+ * urls: string url or Array of urls
+ * returnPromises: if `true`, return a promise that resolves when all the files are deleted.
+ */
 FileCache.prototype.remove = function remove(urls,returnPromises){
   if(!urls) urls = [];
   var promises = [];
@@ -167,7 +180,7 @@ FileCache.prototype.download = function download(onprogress,includeFileProgressE
               // final progress event!
               if(onSingleDownloadProgress) onSingleDownloadProgress(new ProgressEvent());
               // Yes, we're not dirty anymore!
-              if(errors.length === 0) {
+              if(!self.isDirty() && errors.length === 0) {
                 resolve(self);
               // Aye, some files got left behind!
               } else {
@@ -258,7 +271,7 @@ FileCache.prototype.toPath = function toPath(url){
       return this.localRoot + url.substr(len);
     }
   } else {
-    var ext = url.match(/\.[a-z]{1,}/g);
+      var ext = url.match(/\.[a-z,0-9]{1,}/g);
     if (ext) {
       ext = ext[ext.length-1];
     } else {
