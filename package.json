@@ -4,7 +4,9 @@
   "description": "Cordova File Cache",
   "main": "index.js",
   "scripts": {
-    "prepublish": "webpack index.js dist/CordovaFileCache.js --output-library CordovaFileCache --output-library-target var",
+    "prepublish": "npm run webpack && npm run webpack-min",
+    "webpack-min": "webpack index.js dist/CordovaFileCache.min.js  --optimize-minimize --output-library CordovaFileCache --output-library-target var",
+    "webpack": "webpack index.js dist/CordovaFileCache.js  --output-library CordovaFileCache --output-library-target var",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
