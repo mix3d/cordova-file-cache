@@ -1,4 +1,4 @@
-cordova-file-cache
+cordova-file-cache (updated with new 128-bit filename hash)
 ==========
 > Super Awesome File Cache for Cordova Apps
 
