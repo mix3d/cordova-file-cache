@@ -1,4 +1,4 @@
-var hash = require('./murmurhash-128');
+var hash = require('./murmurhash-128').hash128;
 var Promise = null;
 
 /* Cordova File Cache x */
@@ -177,8 +177,10 @@ FileCache.prototype.download = function download(onprogress,includeFileProgressE
             self._downloading = [];
             // check if we got everything
             self.list().then(function(){
+              //REMOVED: No need for a "final" event; this causes the last download item to get fired twice.
               // final progress event!
-              if(onSingleDownloadProgress) onSingleDownloadProgress(new ProgressEvent());
+              // if(onSingleDownloadProgress) onSingleDownloadProgress(new ProgressEvent());
+
               // Yes, we're not dirty anymore!
               if(!self.isDirty() && errors.length === 0) {
                 resolve(self);

@@ -129,7 +129,7 @@ var CordovaFileCache =
 	// PUBLIC FUNCTIONS
 	// ----------------
 	
-	library.x86.hash32 = function (key, seed) {
+	library.hash32 = function (key, seed) {
 		//
 		// Given a string and an optional seed as an int, returns a 32 bit hash
 		// using the x86 flavor of MurmurHash3, as an unsigned int.
@@ -184,7 +184,7 @@ var CordovaFileCache =
 	};
 	
 	
-	library.hash128 = library.hash = function (key, seed) {
+	library.hash128 = function (key, seed) {
 		//
 		// Given a string and an optional seed as an int, returns a 128 bit
 		// hash using the x86 flavor of MurmurHash3, as an unsigned hex.
@@ -352,7 +352,7 @@ var CordovaFileCache =
 	
 	// INITIALIZATION
 	// --------------
-	
+
 	// Export murmurHash3 for CommonJS, either as an AMD module or just as part
 	// of the global object.
 	if (true) {
@@ -392,7 +392,7 @@ var CordovaFileCache =
 /* 1 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var hash = __webpack_require__(0);
+var hash = __webpack_require__(0).hash128;
 var Promise = null;
 
 /* Cordova File Cache x */
@@ -571,8 +571,10 @@ FileCache.prototype.download = function download(onprogress,includeFileProgressE
             self._downloading = [];
             // check if we got everything
             self.list().then(function(){
+              //REMOVED: No need for a "final" event; this causes the last download item to get fired twice.
               // final progress event!
-              if(onSingleDownloadProgress) onSingleDownloadProgress(new ProgressEvent());
+              // if(onSingleDownloadProgress) onSingleDownloadProgress(new ProgressEvent());
+
               // Yes, we're not dirty anymore!
               if(!self.isDirty() && errors.length === 0) {
                 resolve(self);

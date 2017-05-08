@@ -56,7 +56,7 @@
 	// PUBLIC FUNCTIONS
 	// ----------------
 	
-	library.x86.hash32 = function (key, seed) {
+	library.hash32 = function (key, seed) {
 		//
 		// Given a string and an optional seed as an int, returns a 32 bit hash
 		// using the x86 flavor of MurmurHash3, as an unsigned int.
@@ -111,7 +111,7 @@
 	};
 	
 	
-	library.hash128 = library.hash = function (key, seed) {
+	library.hash128 = function (key, seed) {
 		//
 		// Given a string and an optional seed as an int, returns a 128 bit
 		// hash using the x86 flavor of MurmurHash3, as an unsigned hex.
@@ -279,7 +279,7 @@
 	
 	// INITIALIZATION
 	// --------------
-	
+
 	// Export murmurHash3 for CommonJS, either as an AMD module or just as part
 	// of the global object.
 	if (typeof exports !== 'undefined') {
