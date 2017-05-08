@@ -69,25 +69,323 @@ var CordovaFileCache =
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports) {
+/***/ (function(module, exports, __webpack_require__) {
 
-/**
- * Wrapped version of SipHash from https://raw.githubusercontent.com/jedisct1/siphash-js/
- * 
- * function is wrapped to provide the same hash input/output as expected by cordova-file-cache. 
- * SipHashDouble.hash() returns an array of four 32-bit strings otherwise.
- * 
- * key is a randomly generated 8 bit hex integer from random.org
- * 
- * @param {string} value to hash
- * @return {number} 128-bit hex hash 
- */
+// +----------------------------------------------------------------------+
+// | murmurHash3.js v2.1.2 (http://github.com/karanlyons/murmurHash.js)   |
+// | A javascript implementation of MurmurHash3's x86 hashing algorithms. |
+// |----------------------------------------------------------------------|
+// | Copyright (c) 2012 Karan Lyons                                       |
+// | Freely distributable under the MIT license.                          |
+// +----------------------------------------------------------------------+
 
-var SipHashDouble=function(){"use strict";function h(h,r){var t=h.l+r.l,l={h:h.h+r.h+(t/2>>>31)>>>0,l:t>>>0};h.h=l.h,h.l=l.l}function r(h,r){h.h^=r.h,h.h>>>=0,h.l^=r.l,h.l>>>=0}function t(h,r){var t={h:h.h<<r|h.l>>>32-r,l:h.l<<r|h.h>>>32-r};h.h=t.h,h.l=t.l}function l(h){var r=h.l;h.l=h.h,h.h=r}function n(n,o,u,e){h(n,o),h(u,e),t(o,13),t(e,16),r(o,n),r(e,u),l(n),h(u,o),h(n,e),t(o,17),t(e,21),r(o,u),r(e,n),l(u)}function o(h,r){return h.charCodeAt(r+3)<<24|h.charCodeAt(r+2)<<16|h.charCodeAt(r+1)<<8|h.charCodeAt(r)}function u(h,t){var l,u={h:h[1]>>>0,l:h[0]>>>0},e={h:h[3]>>>0,l:h[2]>>>0},a={h:u.h,l:u.l},i=u,s={h:e.h,l:e.l},c=e,f=0,v=t.length,d=v-7,A=new Uint8Array(new ArrayBuffer(8));for(r(a,{h:1936682341,l:1886610805}),r(s,{h:1685025377,l:1852075907}),r(i,{h:1819895653,l:1852142177}),r(c,{h:1952801890,l:2037671283});f<d;)l={h:o(t,f+4),l:o(t,f)},r(c,l),n(a,s,i,c),n(a,s,i,c),r(a,l),f+=8;A[7]=v;for(var b=0;f<v;)A[b++]=t.charCodeAt(f++);for(;b<7;)A[b++]=0;l={h:A[7]<<24|A[6]<<16|A[5]<<8|A[4],l:A[3]<<24|A[2]<<16|A[1]<<8|A[0]},r(c,l),n(a,s,i,c),n(a,s,i,c),r(a,l),r(i,{h:0,l:238}),n(a,s,i,c),n(a,s,i,c),n(a,s,i,c),n(a,s,i,c);var g={h:a.h,l:a.l};r(g,s),r(g,i),r(g,c),r(s,{h:0,l:221}),n(a,s,i,c),n(a,s,i,c),n(a,s,i,c),n(a,s,i,c);var S=a;return r(S,s),r(S,i),r(S,c),[S.h,S.l,g.h,g.l]}function e(h){return[o(h,0),o(h,4),o(h,8),o(h,12)]}function a(h,r){var t=u(h,r);return("0000000"+t[0].toString(16)).substr(-8)+("0000000"+t[1].toString(16)).substr(-8)+("0000000"+t[2].toString(16)).substr(-8)+("0000000"+t[3].toString(16)).substr(-8)}function i(h,r){var t=u(h,r);return 4294967296*(2097151&t.h)+t.l}return{string16_to_key:e,hash:u,hash_hex:a,hash_uint:i}}(),
-key=[ 0xff478982, 0xb0daae9c, 0xde70de3a, 0x91c5757f],
-module=module||{},exports=module.exports=function(string){
-	return SipHashDouble.hash(key,string).join('');
-}
+//Modified to remove the x64 flavor ~ @mix3d
+
+;(function (root, undefined) {
+	'use strict';
+	
+	// Create a local object that'll be exported or referenced globally.
+	var library = {
+		'version': '2.1.2',
+	};
+	
+	// PRIVATE FUNCTIONS
+	// -----------------
+	
+	function _x86Multiply(m, n) {
+		//
+		// Given two 32bit ints, returns the two multiplied together as a
+		// 32bit int.
+		//
+		
+		return ((m & 0xffff) * n) + ((((m >>> 16) * n) & 0xffff) << 16);
+	}
+	
+	
+	function _x86Rotl(m, n) {
+		//
+		// Given a 32bit int and an int representing a number of bit positions,
+		// returns the 32bit int rotated left by that number of positions.
+		//
+		
+		return (m << n) | (m >>> (32 - n));
+	}
+	
+	
+	function _x86Fmix(h) {
+		//
+		// Given a block, returns murmurHash3's final x86 mix of that block.
+		//
+		
+		h ^= h >>> 16;
+		h  = _x86Multiply(h, 0x85ebca6b);
+		h ^= h >>> 13;
+		h  = _x86Multiply(h, 0xc2b2ae35);
+		h ^= h >>> 16;
+		
+		return h;
+	}
+
+	// PUBLIC FUNCTIONS
+	// ----------------
+	
+	library.x86.hash32 = function (key, seed) {
+		//
+		// Given a string and an optional seed as an int, returns a 32 bit hash
+		// using the x86 flavor of MurmurHash3, as an unsigned int.
+		//
+		
+		key = key || '';
+		seed = seed || 0;
+		
+		var remainder = key.length % 4;
+		var bytes = key.length - remainder;
+		
+		var h1 = seed;
+		
+		var k1 = 0;
+		
+		var c1 = 0xcc9e2d51;
+		var c2 = 0x1b873593;
+		
+		for (var i = 0; i < bytes; i = i + 4) {
+			k1 = ((key.charCodeAt(i) & 0xff)) | ((key.charCodeAt(i + 1) & 0xff) << 8) | ((key.charCodeAt(i + 2) & 0xff) << 16) | ((key.charCodeAt(i + 3) & 0xff) << 24);
+			
+			k1 = _x86Multiply(k1, c1);
+			k1 = _x86Rotl(k1, 15);
+			k1 = _x86Multiply(k1, c2);
+			
+			h1 ^= k1;
+			h1 = _x86Rotl(h1, 13);
+			h1 = _x86Multiply(h1, 5) + 0xe6546b64;
+		}
+		
+		k1 = 0;
+		
+		switch (remainder) {
+			case 3:
+				k1 ^= (key.charCodeAt(i + 2) & 0xff) << 16;
+			
+			case 2:
+				k1 ^= (key.charCodeAt(i + 1) & 0xff) << 8;
+			
+			case 1:
+				k1 ^= (key.charCodeAt(i) & 0xff);
+				k1 = _x86Multiply(k1, c1);
+				k1 = _x86Rotl(k1, 15);
+				k1 = _x86Multiply(k1, c2);
+				h1 ^= k1;
+		}
+		
+		h1 ^= key.length;
+		h1 = _x86Fmix(h1);
+		
+		return h1 >>> 0;
+	};
+	
+	
+	library.hash128 = library.hash = function (key, seed) {
+		//
+		// Given a string and an optional seed as an int, returns a 128 bit
+		// hash using the x86 flavor of MurmurHash3, as an unsigned hex.
+		//
+		
+		key = key || '';
+		seed = seed || 0;
+		
+		var remainder = key.length % 16;
+		var bytes = key.length - remainder;
+		
+		var h1 = seed;
+		var h2 = seed;
+		var h3 = seed;
+		var h4 = seed;
+		
+		var k1 = 0;
+		var k2 = 0;
+		var k3 = 0;
+		var k4 = 0;
+		
+		var c1 = 0x239b961b;
+		var c2 = 0xab0e9789;
+		var c3 = 0x38b34ae5;
+		var c4 = 0xa1e38b93;
+		
+		for (var i = 0; i < bytes; i = i + 16) {
+			k1 = ((key.charCodeAt(i) & 0xff)) | ((key.charCodeAt(i + 1) & 0xff) << 8) | ((key.charCodeAt(i + 2) & 0xff) << 16) | ((key.charCodeAt(i + 3) & 0xff) << 24);
+			k2 = ((key.charCodeAt(i + 4) & 0xff)) | ((key.charCodeAt(i + 5) & 0xff) << 8) | ((key.charCodeAt(i + 6) & 0xff) << 16) | ((key.charCodeAt(i + 7) & 0xff) << 24);
+			k3 = ((key.charCodeAt(i + 8) & 0xff)) | ((key.charCodeAt(i + 9) & 0xff) << 8) | ((key.charCodeAt(i + 10) & 0xff) << 16) | ((key.charCodeAt(i + 11) & 0xff) << 24);
+			k4 = ((key.charCodeAt(i + 12) & 0xff)) | ((key.charCodeAt(i + 13) & 0xff) << 8) | ((key.charCodeAt(i + 14) & 0xff) << 16) | ((key.charCodeAt(i + 15) & 0xff) << 24);
+			
+			k1 = _x86Multiply(k1, c1);
+			k1 = _x86Rotl(k1, 15);
+			k1 = _x86Multiply(k1, c2);
+			h1 ^= k1;
+			
+			h1 = _x86Rotl(h1, 19);
+			h1 += h2;
+			h1 = _x86Multiply(h1, 5) + 0x561ccd1b;
+			
+			k2 = _x86Multiply(k2, c2);
+			k2 = _x86Rotl(k2, 16);
+			k2 = _x86Multiply(k2, c3);
+			h2 ^= k2;
+			
+			h2 = _x86Rotl(h2, 17);
+			h2 += h3;
+			h2 = _x86Multiply(h2, 5) + 0x0bcaa747;
+			
+			k3 = _x86Multiply(k3, c3);
+			k3 = _x86Rotl(k3, 17);
+			k3 = _x86Multiply(k3, c4);
+			h3 ^= k3;
+			
+			h3 = _x86Rotl(h3, 15);
+			h3 += h4;
+			h3 = _x86Multiply(h3, 5) + 0x96cd1c35;
+			
+			k4 = _x86Multiply(k4, c4);
+			k4 = _x86Rotl(k4, 18);
+			k4 = _x86Multiply(k4, c1);
+			h4 ^= k4;
+			
+			h4 = _x86Rotl(h4, 13);
+			h4 += h1;
+			h4 = _x86Multiply(h4, 5) + 0x32ac3b17;
+		}
+		
+		k1 = 0;
+		k2 = 0;
+		k3 = 0;
+		k4 = 0;
+		
+		switch (remainder) {
+			case 15:
+				k4 ^= key.charCodeAt(i + 14) << 16;
+			
+			case 14:
+				k4 ^= key.charCodeAt(i + 13) << 8;
+			
+			case 13:
+				k4 ^= key.charCodeAt(i + 12);
+				k4 = _x86Multiply(k4, c4);
+				k4 = _x86Rotl(k4, 18);
+				k4 = _x86Multiply(k4, c1);
+				h4 ^= k4;
+			
+			case 12:
+				k3 ^= key.charCodeAt(i + 11) << 24;
+			
+			case 11:
+				k3 ^= key.charCodeAt(i + 10) << 16;
+			
+			case 10:
+				k3 ^= key.charCodeAt(i + 9) << 8;
+			
+			case 9:
+				k3 ^= key.charCodeAt(i + 8);
+				k3 = _x86Multiply(k3, c3);
+				k3 = _x86Rotl(k3, 17);
+				k3 = _x86Multiply(k3, c4);
+				h3 ^= k3;
+			
+			case 8:
+				k2 ^= key.charCodeAt(i + 7) << 24;
+			
+			case 7:
+				k2 ^= key.charCodeAt(i + 6) << 16;
+			
+			case 6:
+				k2 ^= key.charCodeAt(i + 5) << 8;
+			
+			case 5:
+				k2 ^= key.charCodeAt(i + 4);
+				k2 = _x86Multiply(k2, c2);
+				k2 = _x86Rotl(k2, 16);
+				k2 = _x86Multiply(k2, c3);
+				h2 ^= k2;
+			
+			case 4:
+				k1 ^= key.charCodeAt(i + 3) << 24;
+			
+			case 3:
+				k1 ^= key.charCodeAt(i + 2) << 16;
+			
+			case 2:
+				k1 ^= key.charCodeAt(i + 1) << 8;
+			
+			case 1:
+				k1 ^= key.charCodeAt(i);
+				k1 = _x86Multiply(k1, c1);
+				k1 = _x86Rotl(k1, 15);
+				k1 = _x86Multiply(k1, c2);
+				h1 ^= k1;
+		}
+		
+		h1 ^= key.length;
+		h2 ^= key.length;
+		h3 ^= key.length;
+		h4 ^= key.length;
+		
+		h1 += h2;
+		h1 += h3;
+		h1 += h4;
+		h2 += h1;
+		h3 += h1;
+		h4 += h1;
+		
+		h1 = _x86Fmix(h1);
+		h2 = _x86Fmix(h2);
+		h3 = _x86Fmix(h3);
+		h4 = _x86Fmix(h4);
+		
+		h1 += h2;
+		h1 += h3;
+		h1 += h4;
+		h2 += h1;
+		h3 += h1;
+		h4 += h1;
+		
+		return ("00000000" + (h1 >>> 0).toString(16)).slice(-8) + ("00000000" + (h2 >>> 0).toString(16)).slice(-8) + ("00000000" + (h3 >>> 0).toString(16)).slice(-8) + ("00000000" + (h4 >>> 0).toString(16)).slice(-8);
+	};
+	
+	
+	// INITIALIZATION
+	// --------------
+	
+	// Export murmurHash3 for CommonJS, either as an AMD module or just as part
+	// of the global object.
+	if (true) {
+		if (typeof module !== 'undefined' && module.exports) {
+			exports = module.exports = library;
+		}
+		
+		exports.murmurHash3 = library;
+	}
+	
+	else if (typeof define === 'function' && define.amd) {
+		define([], function() {
+			return library;
+		});
+	}
+	
+	else {
+		// Use murmurHash3.noConflict to restore `murmurHash3` back to its
+		// original value. Returns a reference to the library object, to allow
+		// it to be used under a different name.
+		library._murmurHash3 = root.murmurHash3
+		
+		library.noConflict = function () {
+			root.murmurHash3 = library._murmurHash3;
+			library._murmurHash3 = undefined;
+			library.noConflict = undefined;
+			
+			return library;
+		};
+		
+		root.murmurHash3 = library;
+	}
+})(this);
 
 
 /***/ }),
